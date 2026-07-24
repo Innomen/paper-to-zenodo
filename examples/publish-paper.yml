@@ -1,0 +1,43 @@
+name: Publish paper
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  zenodo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - id: zenodo
+        uses: Innomen/paper-to-zenodo@v1
+        with:
+          source: src/paper.md
+          pdf: dist/paper.pdf
+          orcid: 0009-0001-4165-5463
+          copyright-holder: Brandon M. Sergent
+          zenodo-token: ${{ secrets.ZENODO_TOKEN }}
+          release-body: ${{ github.event.release.body }}
+
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ github.event.release.body }}
+          RECORD_URL: ${{ steps.zenodo.outputs.record-url }}
+          DOI: ${{ steps.zenodo.outputs.doi }}
+          RECORD_ID: ${{ steps.zenodo.outputs.deposit-id }}
+          TAG: ${{ github.event.release.tag_name }}
+        shell: bash
+        run: |
+          {
+            printf '%s\n\n' "$BODY"
+            printf 'Zenodo record: %s\n' "$RECORD_URL"
+            printf 'DOI: https://doi.org/%s\n' "$DOI"
+            printf '<!-- zenodo-record:%s -->\n' "$RECORD_ID"
+          } > /tmp/release-notes.md
+          gh release edit "$TAG" --notes-file /tmp/release-notes.md

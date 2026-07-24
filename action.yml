@@ -1,0 +1,51 @@
+name: Paper to Zenodo
+description: Publish a Markdown paper and its PDF to Zenodo as a public preprint.
+
+inputs:
+  source:
+    description: Markdown source containing title, author, abstract, and keywords.
+    required: true
+  pdf:
+    description: Publication PDF to upload.
+    required: true
+  orcid:
+    description: ORCID for the paper's author.
+    required: true
+  copyright-holder:
+    description: Copyright holder used in the rights statement.
+    required: true
+  publication-type:
+    description: Zenodo publication type.
+    required: false
+    default: preprint
+  zenodo-token:
+    description: Zenodo token with deposit:write and deposit:actions.
+    required: true
+  release-body:
+    description: Existing GitHub release notes, used for duplicate protection.
+    required: false
+    default: ""
+
+outputs:
+  deposit-id:
+    value: ${{ steps.publish.outputs.deposit_id }}
+  doi:
+    value: ${{ steps.publish.outputs.doi }}
+  record-url:
+    value: ${{ steps.publish.outputs.record_url }}
+
+runs:
+  using: composite
+  steps:
+    - id: publish
+      shell: bash
+      env:
+        ZENODO_TOKEN: ${{ inputs.zenodo-token }}
+      run: |
+        python3 "${{ github.action_path }}/zenodo_publish.py" \
+          --source "${{ inputs.source }}" \
+          --pdf "${{ inputs.pdf }}" \
+          --orcid "${{ inputs.orcid }}" \
+          --copyright-holder "${{ inputs.copyright-holder }}" \
+          --publication-type "${{ inputs.publication-type }}" \
+          --release-body "${{ inputs.release-body }}"
