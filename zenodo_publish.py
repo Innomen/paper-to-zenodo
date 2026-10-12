@@ -33,12 +33,28 @@ def parse_paper(
         text,
         re.MULTILINE | re.DOTALL,
     )
-    if not (title_match and author_match and abstract_match):
-        raise ValueError(
-            "source must contain an H1 title, bold author, Abstract section, and Keywords line"
-        )
-
-    author = author_match.group(1).strip()
+    if text.startswith("---\n"):
+        header = text.split("\n---", 1)[0]
+        def field(name):
+            match = re.search(r"^" + name + r":\s*(.+)$", header, re.MULTILINE)
+            if not match:
+                raise ValueError("missing frontmatter field: " + name)
+            value = match.group(1).strip()
+            return json.loads(value) if value.startswith('"') else value.strip("'")
+        title = field("title")
+        author = field("author")
+        block = re.search(r"^abstract: \|\n((?:[ \t].*\n|\n)+)", header + "\n", re.MULTILINE)
+        if not block:
+            raise ValueError("missing abstract block")
+        content = "\n".join(line[2:] if line.startswith("  ") else line for line in block.group(1).splitlines())
+        abstract_match = re.search(r"(.+?)\n+\*\*Keywords:\*\*\s*(.+)", content, re.DOTALL)
+    else:
+        if not (title_match and author_match):
+            raise ValueError("source must contain title and author")
+        title = title_match.group(1).strip()
+        author = author_match.group(1).strip()
+    if not abstract_match:
+        raise ValueError("source must contain an abstract and Keywords line")
     if not re.fullmatch(r"\d{4}-\d{4}-\d{4}-\d{3}[\dX]", orcid):
         raise ValueError("ORCID must use the 0000-0000-0000-0000 form")
 
@@ -57,7 +73,7 @@ def parse_paper(
     return {
         "upload_type": "publication",
         "publication_type": publication_type,
-        "title": title_match.group(1).strip(),
+        "title": title,
         "creators": [{"name": creator_name, "orcid": orcid}],
         "description": (
             f"<p>{abstract}</p>"
